@@ -1,6 +1,38 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import pg from "pg";
+const { Pool } = pg;
+
+// Initialize the database on startup
+async function initializeDatabase() {
+  console.log("Initializing database...");
+  
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+  });
+  
+  try {
+    // Create contacts table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS contacts (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        message TEXT NOT NULL,
+        services TEXT[] NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
+    
+    console.log("Database initialized successfully");
+  } catch (error) {
+    console.error("Error initializing database:", error);
+  } finally {
+    await pool.end();
+  }
+}
 
 const app = express();
 app.use(express.json());
@@ -37,6 +69,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize database before starting the server
+  await initializeDatabase();
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
