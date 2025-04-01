@@ -26,5 +26,28 @@ export const contactFormSchema = z.object({
 export const insertContactSchema = createInsertSchema(contacts);
 
 // Export types
+// Portfolio schema
+export const portfolioItems = pgTable("portfolio_items", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  category: text("category").notNull(),
+  categories: text("categories").notNull(),
+  image: text("image").notNull(),
+  rowSpan: integer("row_span").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const portfolioFormSchema = z.object({
+  title: z.string().min(2, "Title must be at least 2 characters"),
+  category: z.string(),
+  categories: z.string(),
+  image: z.string(),
+  rowSpan: z.number().min(20).max(50),
+});
+
+export const insertPortfolioSchema = createInsertSchema(portfolioItems);
+
 export type InsertContact = z.infer<typeof insertContactSchema>;
 export type Contact = typeof contacts.$inferSelect;
+export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
+export type Portfolio = typeof portfolioItems.$inferSelect;
