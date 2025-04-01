@@ -3,10 +3,16 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import pg from "pg";
 const { Pool } = pg;
+import { storage, MemStorage, PostgresStorage } from "./storage";
 
 // Initialize the database on startup
 async function initializeDatabase() {
   console.log("Initializing database...");
+  
+  if (!process.env.DATABASE_URL) {
+    console.log("No DATABASE_URL provided, using in-memory storage.");
+    return false;
+  }
   
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -27,8 +33,10 @@ async function initializeDatabase() {
     `);
     
     console.log("Database initialized successfully");
+    return true;
   } catch (error) {
     console.error("Error initializing database:", error);
+    return false;
   } finally {
     await pool.end();
   }
@@ -71,7 +79,13 @@ app.use((req, res, next) => {
 
 (async () => {
   // Initialize database before starting the server
-  await initializeDatabase();
+  const dbInitialized = await initializeDatabase();
+  
+  // Use in-memory storage if database initialization failed
+  if (!dbInitialized) {
+    (storage as any).prototype = Object.getPrototypeOf(new MemStorage());
+    console.log("Using in-memory storage");
+  }
   
   const server = await registerRoutes(app);
 
@@ -92,14 +106,11 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  // Change from 0.0.0.0 to localhost to avoid ENOTSUP error
   const port = 5000;
   server.listen({
     port,
-    host: "0.0.0.0",
-    reusePort: true,
+    host: "localhost",
   }, () => {
     log(`serving on port ${port}`);
   });

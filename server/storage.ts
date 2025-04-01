@@ -2,6 +2,8 @@ import { contacts, type Contact, type InsertContact } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { eq } from "drizzle-orm";
 import pg from "pg";
+import { type NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "@shared/schema";
 const { Pool } = pg;
 
 // Storage interface
@@ -12,17 +14,27 @@ export interface IStorage {
 }
 
 // Database connection setup
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+let pool: pg.Pool | undefined;
+let db: NodePgDatabase<typeof schema> | undefined;
 
-// Initialize Drizzle with PostgreSQL
-const db = drizzle(pool);
+try {
+  if (process.env.DATABASE_URL) {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+    });
+    
+    // Initialize Drizzle with PostgreSQL
+    db = drizzle(pool, { schema });
+  }
+} catch (error) {
+  console.error("Error setting up database connection:", error);
+}
 
 // PostgreSQL storage implementation
 export class PostgresStorage implements IStorage {
   async getContacts(): Promise<Contact[]> {
     try {
+      if (!db) throw new Error("Database not initialized");
       return await db.select().from(contacts);
     } catch (error) {
       console.error("Error fetching contacts:", error);
@@ -32,6 +44,7 @@ export class PostgresStorage implements IStorage {
 
   async getContact(id: number): Promise<Contact | undefined> {
     try {
+      if (!db) throw new Error("Database not initialized");
       const results = await db.select().from(contacts).where(eq(contacts.id, id));
       return results[0];
     } catch (error) {
@@ -42,6 +55,7 @@ export class PostgresStorage implements IStorage {
 
   async createContact(insertContact: InsertContact): Promise<Contact> {
     try {
+      if (!db) throw new Error("Database not initialized");
       const now = new Date().toISOString();
       const contactData = { ...insertContact, createdAt: now };
       
@@ -81,5 +95,5 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Use PostgreSQL storage
-export const storage = new PostgresStorage();
+// Use PostgreSQL storage if available, otherwise use in-memory storage
+export let storage: IStorage = db ? new PostgresStorage() : new MemStorage();
