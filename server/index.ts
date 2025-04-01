@@ -57,6 +57,23 @@ async function startServer() {
     const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5000;
     server.listen(PORT, () => {
       console.log(`Server started on http://localhost:${PORT}`);
+    }).on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(`Port ${PORT} is in use, attempting to use a random available port...`);
+        server.close(() => {
+          server.listen(0, () => {
+            const address = server.address();
+            if (address && typeof address === 'object') {
+              console.log(`Server started on http://localhost:${address.port}`);
+            } else {
+              console.log('Server started on an auto-assigned port');
+            }
+          });
+        });
+      } else {
+        console.error('Server error:', err);
+        process.exit(1);
+      }
     });
     
     // Error handling middleware
