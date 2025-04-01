@@ -1,52 +1,19 @@
 import express, { type Request, Response, NextFunction } from "express";
+import dotenv from 'dotenv';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import pg from "pg";
-const { Pool } = pg;
-import { storage, MemStorage, PostgresStorage } from "./storage";
+import { storage, MemStorage } from "./storage";
+import { connectToDatabase } from './db';
 
-// Initialize the database on startup
-async function initializeDatabase() {
-  console.log("Initializing database...");
-  
-  if (!process.env.DATABASE_URL) {
-    console.log("No DATABASE_URL provided, using in-memory storage.");
-    return false;
-  }
-  
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
-  
-  try {
-    // Create contacts table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS contacts (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL,
-        subject TEXT NOT NULL,
-        message TEXT NOT NULL,
-        services TEXT[] NOT NULL,
-        created_at TEXT NOT NULL
-      );
-    `);
-    
-    console.log("Database initialized successfully");
-    return true;
-  } catch (error) {
-    console.error("Error initializing database:", error);
-    return false;
-  } finally {
-    await pool.end();
-  }
-}
+// Load environment variables
+dotenv.config();
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use('/uploads', express.static('uploads'));
 
+// Middleware for API logging
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -77,41 +44,41 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
-  // Initialize database before starting the server
-  const dbInitialized = await initializeDatabase();
+// Start server
+async function startServer() {
+  try {
+    // Connect to MongoDB
+    await connectToDatabase();
+    
+    // Create HTTP server
+    const server = await registerRoutes(app);
+    
+    // Start listening on port
+    const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+    server.listen(PORT, () => {
+      console.log(`Server started on http://localhost:${PORT}`);
+    });
+    
+    // Error handling middleware
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
   
-  // Use in-memory storage if database initialization failed
-  if (!dbInitialized) {
-    (storage as any).prototype = Object.getPrototypeOf(new MemStorage());
-    console.log("Using in-memory storage");
-  }
+      res.status(status).json({ message });
+      throw err;
+    });
   
-  const server = await registerRoutes(app);
-
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+    // Setup for development or production environment
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
+    
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
   }
+}
 
-  // Change from 0.0.0.0 to localhost to avoid ENOTSUP error
-  const port = 5000;
-  server.listen({
-    port,
-    host: "localhost",
-  }, () => {
-    log(`serving on port ${port}`);
-  });
-})();
+startServer();

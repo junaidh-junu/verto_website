@@ -1,29 +1,31 @@
-import pg from "pg";
-const { Pool } = pg;
-import { drizzle } from "drizzle-orm/node-postgres";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
 
-// Database connection setup
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+// Load environment variables
+dotenv.config();
 
-// Initialize Drizzle with PostgreSQL
-const db = drizzle(pool);
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/vertocraftdb';
 
-// Run migrations
-async function runMigrations() {
-  console.log("Running database migrations...");
+async function runMigration() {
+  console.log("Running MongoDB migrations...");
+  
+  const client = new MongoClient(MONGODB_URI);
   
   try {
-    await migrate(db, { migrationsFolder: "drizzle" });
-    console.log("Migrations completed successfully.");
+    await client.connect();
+    console.log("Connected to MongoDB");
+    
+    const db = client.db("vertocraftdb");
+    
+    // Add any migration logic here if needed
+    // For example, updating document schemas, adding fields, etc.
+    
+    console.log("MongoDB migrations completed successfully");
   } catch (error) {
-    console.error("Error running migrations:", error);
-    process.exit(1);
+    console.error("Error running MongoDB migrations:", error);
   } finally {
-    await pool.end();
+    await client.close();
   }
 }
 
-runMigrations();
+runMigration();

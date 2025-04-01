@@ -1,19 +1,6 @@
-import { pgTable, text, serial, integer } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Contact form submissions
-export const contacts = pgTable("contacts", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull(),
-  subject: text("subject").notNull(),
-  message: text("message").notNull(),
-  services: text("services").array().notNull(),
-  createdAt: text("created_at").notNull(),
-});
-
-// Create Zod schema for form validation
+// Contact form submissions schema
 export const contactFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
@@ -23,16 +10,6 @@ export const contactFormSchema = z.object({
 });
 
 // Portfolio schema
-export const portfolioItems = pgTable("portfolio_items", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  category: text("category").notNull(),
-  categories: text("categories").notNull(),
-  image: text("image").notNull(),
-  rowSpan: integer("row_span").notNull(),
-  createdAt: text("created_at").notNull(),
-});
-
 export const portfolioFormSchema = z.object({
   title: z.string().min(2, "Title must be at least 2 characters"),
   category: z.string(),
@@ -41,12 +18,28 @@ export const portfolioFormSchema = z.object({
   rowSpan: z.number().min(20).max(50),
 });
 
-// Create Drizzle insert schemas
-export const insertContactSchema = createInsertSchema(contacts);
-export const insertPortfolioSchema = createInsertSchema(portfolioItems);
+// Contact model type
+export interface Contact {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  services: string[];
+  createdAt: string;
+}
 
-// Export types
-export type InsertContact = z.infer<typeof insertContactSchema>;
-export type Contact = typeof contacts.$inferSelect;
-export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
-export type Portfolio = typeof portfolioItems.$inferSelect;
+// Portfolio model type
+export interface Portfolio {
+  id: string;
+  title: string;
+  category: string;
+  categories: string;
+  image: string;
+  rowSpan: number;
+  createdAt: string;
+}
+
+// Insert types
+export type InsertContact = Omit<Contact, 'id' | 'createdAt'>;
+export type InsertPortfolio = Omit<Portfolio, 'id' | 'createdAt'>;

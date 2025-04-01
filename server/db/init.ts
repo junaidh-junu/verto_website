@@ -1,38 +1,45 @@
-import pg from "pg";
-const { Pool } = pg;
-import { drizzle } from "drizzle-orm/node-postgres";
-import { pgTable, text, serial } from "drizzle-orm/pg-core";
+import { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
 
-// Database connection setup
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+// Load environment variables
+dotenv.config();
 
-// Initialize Drizzle with PostgreSQL
-const db = drizzle(pool);
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/vertocraftdb';
 
 async function initializeDatabase() {
-  console.log("Initializing database tables...");
+  console.log("Initializing MongoDB...");
+  
+  const client = new MongoClient(MONGODB_URI);
   
   try {
-    // Create contacts table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS contacts (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL,
-        subject TEXT NOT NULL,
-        message TEXT NOT NULL,
-        services TEXT[] NOT NULL,
-        created_at TEXT NOT NULL
-      );
-    `);
+    await client.connect();
+    console.log("Connected to MongoDB");
     
-    console.log("Database tables created successfully");
+    const db = client.db("vertocraftdb");
+    
+    // Check if collections exist, create them if they don't
+    const collections = await db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+    
+    if (!collectionNames.includes('contacts')) {
+      await db.createCollection('contacts');
+      console.log("Created contacts collection");
+    }
+    
+    if (!collectionNames.includes('portfolio')) {
+      await db.createCollection('portfolio');
+      console.log("Created portfolio collection");
+    }
+    
+    // Create indexes if needed
+    await db.collection('contacts').createIndex({ email: 1 });
+    await db.collection('portfolio').createIndex({ category: 1 });
+    
+    console.log("MongoDB initialization completed successfully");
   } catch (error) {
-    console.error("Error initializing database:", error);
+    console.error("Error initializing MongoDB:", error);
   } finally {
-    await pool.end();
+    await client.close();
   }
 }
 
