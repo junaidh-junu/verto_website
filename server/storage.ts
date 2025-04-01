@@ -1,4 +1,4 @@
-import { contacts, portfolioItems, type Contact, type InsertContact, type Portfolio, type InsertPortfolio } from "@shared/schema";
+import { contacts, type Contact, type InsertContact } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { eq } from "drizzle-orm";
 import pg from "pg";
@@ -9,9 +9,6 @@ export interface IStorage {
   getContacts(): Promise<Contact[]>;
   getContact(id: number): Promise<Contact | undefined>;
   createContact(contact: InsertContact): Promise<Contact>;
-  getPortfolioItems(): Promise<Portfolio[]>;
-  createPortfolioItem(item: InsertPortfolio): Promise<Portfolio>;
-  deletePortfolioItem(id: number): Promise<void>;
 }
 
 // Database connection setup
@@ -24,35 +21,6 @@ const db = drizzle(pool);
 
 // PostgreSQL storage implementation
 export class PostgresStorage implements IStorage {
-  async getPortfolioItems(): Promise<Portfolio[]> {
-    try {
-      return await db.select().from(portfolioItems);
-    } catch (error) {
-      console.error("Error fetching portfolio items:", error);
-      return [];
-    }
-  }
-
-  async createPortfolioItem(item: InsertPortfolio): Promise<Portfolio> {
-    try {
-      const now = new Date().toISOString();
-      const portfolioData = { ...item, createdAt: now };
-      const result = await db.insert(portfolioItems).values(portfolioData).returning();
-      return result[0];
-    } catch (error) {
-      console.error("Error creating portfolio item:", error);
-      throw error;
-    }
-  }
-
-  async deletePortfolioItem(id: number): Promise<void> {
-    try {
-      await db.delete(portfolioItems).where(eq(portfolioItems.id, id));
-    } catch (error) {
-      console.error("Error deleting portfolio item:", error);
-      throw error;
-    }
-  }
   async getContacts(): Promise<Contact[]> {
     try {
       return await db.select().from(contacts);

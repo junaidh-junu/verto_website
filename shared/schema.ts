@@ -1,4 +1,4 @@
-import { pgTable, text, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -22,10 +22,6 @@ export const contactFormSchema = z.object({
   services: z.array(z.string()).optional().default([]),
 });
 
-// Create Drizzle insert schema
-export const insertContactSchema = createInsertSchema(contacts);
-
-// Export types
 // Portfolio schema
 export const portfolioItems = pgTable("portfolio_items", {
   id: serial("id").primaryKey(),
@@ -45,8 +41,11 @@ export const portfolioFormSchema = z.object({
   rowSpan: z.number().min(20).max(50),
 });
 
+// Create Drizzle insert schemas
+export const insertContactSchema = createInsertSchema(contacts);
 export const insertPortfolioSchema = createInsertSchema(portfolioItems);
 
+// Export types
 export type InsertContact = z.infer<typeof insertContactSchema>;
 export type Contact = typeof contacts.$inferSelect;
 export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
